@@ -4,9 +4,13 @@ imageProcessingUtils - Image Processing and YOLO Utilities Package
 A comprehensive Python package for image processing, YOLO model training, and data analysis utilities.
 """
 
-# Import the main package to maintain backward compatibility
-from .imageProcessingUtils import *
-from .imageProcessingUtils import __version__, __author__
+__version__ = "0.1.0"
+__author__ = "Zbedd"
+
+# Import all modules to make them available at package level
+from . import yolo
+from . import image_processing
+from . import file_io
 
 __all__ = [
     "yolo",

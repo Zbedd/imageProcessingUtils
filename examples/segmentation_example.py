@@ -1,11 +1,11 @@
 """
 Example: Image Segmentation with YOLO
 
-This example demonstrates how to use tunel_utils for image segmentation.
+This example demonstrates how to use imageProcessingUtils for image segmentation.
 """
 
-from yolo import segmentation
-from image_processing import preprocessing
+from imageProcessingUtils.yolo import segmentation
+from imageProcessingUtils.image_processing import preprocessing
 
 
 def main():

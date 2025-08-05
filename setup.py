@@ -80,8 +80,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "imageProcessingUtils-train=yolo.model_training:main",
-            "imageProcessingUtils-segment=yolo.segmentation:main",
+            "imageProcessingUtils-train=imageProcessingUtils.yolo.model_training:main",
+            "imageProcessingUtils-segment=imageProcessingUtils.yolo.segmentation:main",
         ],
     },
     include_package_data=True,
