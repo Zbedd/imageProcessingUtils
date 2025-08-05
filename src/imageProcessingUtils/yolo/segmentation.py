@@ -42,14 +42,26 @@ class YOLOSegmentation:
                        - Falls back to base models in models/ directory  
                        - Finally checks runs/segment/train*/weights/best.pt
         """
+        print(f"Debug: YOLOSegmentation init called with model_path: {model_path}")
+        print(f"Debug: Current working directory: {Path.cwd()}")
+        print(f"Debug: Module file location: {Path(__file__)}")
+        print(f"Debug: Module parent directory: {Path(__file__).parent}")
+        
         self.model = None
         self.model_path = None
         
         if model_path is None:
             # Auto-discover the latest trained model
             self.model_path = self._find_latest_model()
+            print(f"Debug: Auto-discovered model_path: {self.model_path}")
         else:
             self.model_path = Path(model_path)
+            print(f"Debug: Using provided model_path: {self.model_path}")
+            
+        print(f"Debug: Final model_path before loading: {self.model_path}")
+        if self.model_path and not self.model_path.exists():
+            print(f"Debug: Model file does not exist: {self.model_path}")
+            self.model_path = None
             
         self._load_model()
     
@@ -57,42 +69,59 @@ class YOLOSegmentation:
         """Find the most recently trained YOLO model."""
         # First check for models in the models directory (preferred)
         models_dir = Path(__file__).parent / "models"
+        print(f"Debug: Checking models directory: {models_dir}")
+        print(f"Debug: Models directory exists: {models_dir.exists()}")
+        
         if models_dir.exists():
             try:
                 # Prioritize fine-tuned models (those starting with "best_")
                 fine_tuned_models = list(models_dir.glob("best_*.pt"))
+                print(f"Debug: Found {len(fine_tuned_models)} fine-tuned models")
                 if fine_tuned_models:
                     model_path = max(fine_tuned_models, key=lambda p: p.stat().st_mtime)
                     print(f"Found fine-tuned model in models directory: {model_path}")
                     return model_path
                 
                 # Fall back to any .pt model if no fine-tuned models
-                model_path = max(
-                    models_dir.glob("*.pt"),
-                    key=lambda p: p.stat().st_mtime,
-                )
-                print(f"Found model in models directory: {model_path}")
-                return model_path
-            except ValueError:
+                all_models = list(models_dir.glob("*.pt"))
+                print(f"Debug: Found {len(all_models)} total .pt models")
+                if all_models:
+                    model_path = max(all_models, key=lambda p: p.stat().st_mtime)
+                    print(f"Found model in models directory: {model_path}")
+                    return model_path
+            except ValueError as e:
+                print(f"Debug: ValueError in models directory search: {e}")
                 pass  # No models in models directory, continue to runs/
+            except Exception as e:
+                print(f"Debug: Unexpected error in models directory search: {e}")
+                pass
         
         # Fall back to runs directory within the yolo module
         runs_dir = Path(__file__).parent / "runs" / "segment"
+        print(f"Debug: Checking runs directory: {runs_dir}")
+        print(f"Debug: Runs directory exists: {runs_dir.exists()}")
         
         try:
             # Find the most recent best.pt model
-            model_path = max(
-                runs_dir.glob("train*/weights/best.pt"),
-                key=lambda p: p.stat().st_mtime,
-            )
-            print(f"Found model in runs directory: {model_path}")
-            return model_path
-        except ValueError:
+            training_models = list(runs_dir.glob("train*/weights/best.pt"))
+            print(f"Debug: Found {len(training_models)} training models")
+            if training_models:
+                model_path = max(training_models, key=lambda p: p.stat().st_mtime)
+                print(f"Found model in runs directory: {model_path}")
+                return model_path
+        except ValueError as e:
+            print(f"Debug: ValueError in runs directory search: {e}")
             # No models found
-            return None
+            pass
+        except Exception as e:
+            print(f"Debug: Unexpected error in runs directory search: {e}")
+            pass
+            
+        print("Debug: No models found in any location")
+        return None
     
     def _load_model(self):
-        """Load the YOLO model."""
+        """Load the YOLO model with proper device handling."""
         if self.model_path is None or not self.model_path.exists():
             print(f"Warning: YOLO model not found at '{self.model_path}'. "
                   "YOLO-based segmentation will be unavailable.")
@@ -102,12 +131,35 @@ class YOLOSegmentation:
             # Clear any existing model first to avoid state issues
             self.model = None
             
+            # Import torch to check device availability
+            try:
+                import torch
+                # Use CUDA if available, otherwise CPU
+                device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                print(f"Debug: Using device: {device}")
+            except ImportError:
+                # Fallback if torch not available
+                device = 'cpu'
+                print("Debug: PyTorch not available, defaulting to CPU")
+            
+            # Load model with explicit device specification
             self.model = YOLO(self.model_path)
+            
+            # Move model to appropriate device
+            if hasattr(self.model, 'to'):
+                self.model.to(device)
+            elif hasattr(self.model.model, 'to'):
+                self.model.model.to(device)
+                
             self.model.fuse()
-            print(f"YOLO model loaded from '{self.model_path}'")
+            print(f"YOLO model loaded from '{self.model_path}' on device: {device}")
+            
         except Exception as e:
             print(f"Warning: could not load YOLO model at '{self.model_path}': {e}\n"
-                  "         YOLO-based segmentation will be unavailable.")
+                  f"         Device: {device if 'device' in locals() else 'unknown'}")
+            print(f"         Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
             self.model = None  # Ensure model is None on failure
     
     def is_available(self) -> bool:
@@ -149,7 +201,20 @@ class YOLOSegmentation:
             Input images are automatically resized and converted during inference.
         """
         if not self.is_available():
-            raise RuntimeError("YOLO model not loaded; cannot run YOLO segmentation.")
+            print(f"Debug: YOLO model not available. Model path: {self.model_path}, Model loaded: {self.model is not None}")
+            if self.model_path is None:
+                print("Debug: Model path is None - model discovery failed")
+            elif not self.model_path.exists():
+                print(f"Debug: Model file does not exist: {self.model_path}")
+            else:
+                print("Debug: Model file exists but failed to load")
+                
+            raise RuntimeError(
+                f"YOLO model not loaded; cannot run YOLO segmentation. "
+                f"Model path: {self.model_path}. "
+                f"Current working directory: {Path.cwd()}. "
+                f"Module location: {Path(__file__).parent}"
+            )
         
         try:
             # Prepare 3-channel uint8 input
@@ -157,15 +222,34 @@ class YOLOSegmentation:
             if img8.ndim == 2:
                 img8 = np.stack([img8] * 3, axis=-1)
             
-            # Run inference
-            results = self.model(
-                img8, 
-                imgsz=768, 
-                mask_ratio=1, 
-                conf=conf_thres, 
-                retina_masks=True, 
-                verbose=False
-            )[0]
+            # Run inference with device consistency check
+            try:
+                results = self.model(
+                    img8, 
+                    imgsz=768, 
+                    mask_ratio=1, 
+                    conf=conf_thres, 
+                    retina_masks=True, 
+                    verbose=False
+                )[0]
+            except RuntimeError as e:
+                if "Expected all tensors to be on the same device" in str(e) or "CUDA" in str(e):
+                    print(f"Device mismatch detected: {e}")
+                    print("Attempting to reload model with proper device handling...")
+                    self.reload_model()
+                    if self.is_available():
+                        results = self.model(
+                            img8, 
+                            imgsz=768, 
+                            mask_ratio=1, 
+                            conf=conf_thres, 
+                            retina_masks=True, 
+                            verbose=False
+                        )[0]
+                    else:
+                        raise e
+                else:
+                    raise e
             
         except Exception as e:
             print(f"Warning: YOLO inference failed: {e}")
