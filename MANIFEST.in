@@ -1,0 +1,23 @@
+include README.md
+include LICENSE
+include pyproject.toml
+
+# Include YOLO model files
+recursive-include src/imageProcessingUtils/yolo/models *.pt
+recursive-include src/imageProcessingUtils/yolo/runs *.pt
+
+# Include config files
+recursive-include src *.yaml
+recursive-include src *.yml
+recursive-include src *.json
+
+# Exclude unwanted files
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .git*
+prune .venv
+prune .dev
+prune tests/__pycache__
+prune src/**/__pycache__

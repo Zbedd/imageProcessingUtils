@@ -58,7 +58,14 @@ try:
     print("Creating YOLOSegmentation instance...")
     segmenter = YOLOSegmentation()
     print("✅ Successfully created YOLOSegmentation instance")
-    print(f"Model path: {segmenter.model_path}")
+    
+    # Get detailed installation info
+    install_info = segmenter.get_installation_info()
+    print("\n=== Installation Information ===")
+    for key, value in install_info.items():
+        print(f"{key}: {value}")
+    
+    print(f"\nModel path: {segmenter.model_path}")
     print(f"Model loaded: {segmenter.model is not None}")
     print(f"Is available: {segmenter.is_available()}")
     

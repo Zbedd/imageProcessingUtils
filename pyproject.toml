@@ -75,6 +75,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.json", "*.txt", "*.pt"]
+"imageProcessingUtils.yolo" = ["models/*.pt", "runs/**/*.pt"]
 
 [tool.black]
 line-length = 88

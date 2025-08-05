@@ -65,11 +65,94 @@ class YOLOSegmentation:
             
         self._load_model()
     
+    def _is_development_install(self) -> bool:
+        """Check if running from development source vs installed package."""
+        return 'site-packages' not in str(Path(__file__))
+        
+    def get_installation_info(self) -> dict:
+        """Get detailed information about the current installation."""
+        info = {
+            'is_development': self._is_development_install(),
+            'module_file': str(Path(__file__)),
+            'models_directory': str(self._get_models_directory()) if self._get_models_directory() else None,
+            'model_path': str(self.model_path) if self.model_path else None,
+            'model_available': self.is_available(),
+        }
+        
+        # Check if we're in site-packages
+        if 'site-packages' in str(Path(__file__)):
+            info['installation_type'] = 'pip_installed'
+        elif str(Path(__file__)).endswith('.egg'):
+            info['installation_type'] = 'egg_installed' 
+        else:
+            info['installation_type'] = 'development'
+            
+        return info
+
+    def _get_models_directory(self) -> Path | None:
+        """Get models directory with fallbacks for different installation scenarios."""
+        import os
+        
+        # 1. Environment variable override
+        env_path = os.environ.get('IMAGEPROCESSINGUTILS_MODEL_PATH')
+        if env_path and Path(env_path).exists():
+            print(f"Debug: Using model path from environment: {env_path}")
+            return Path(env_path)
+        
+        # 2. Try installed package resources (modern approach)
+        try:
+            from importlib.resources import files
+            models_dir = files('imageProcessingUtils.yolo') / 'models'
+            if models_dir.is_dir():
+                print(f"Debug: Found models via importlib.resources: {models_dir}")
+                return Path(str(models_dir))
+        except (ImportError, AttributeError, Exception) as e:
+            print(f"Debug: importlib.resources failed: {e}")
+            pass
+        
+        # 3. Try pkg_resources (older approach)
+        try:
+            import pkg_resources
+            models_dir = pkg_resources.resource_filename(
+                'imageProcessingUtils.yolo', 'models'
+            )
+            if Path(models_dir).exists():
+                print(f"Debug: Found models via pkg_resources: {models_dir}")
+                return Path(models_dir)
+        except Exception as e:
+            print(f"Debug: pkg_resources failed: {e}")
+            pass
+        
+        # 4. Development installation fallback (current approach)
+        module_dir = Path(__file__).parent
+        dev_models_dir = module_dir / 'models'
+        if dev_models_dir.exists():
+            print(f"Debug: Found models in development location: {dev_models_dir}")
+            return dev_models_dir
+        
+        # 5. Source tree fallback paths
+        source_paths = [
+            module_dir.parent.parent.parent / 'src/imageProcessingUtils/yolo/models',
+            module_dir.parent.parent / 'imageProcessingUtils/yolo/models',
+            Path.cwd() / 'src/imageProcessingUtils/yolo/models',  # When run from repo root
+        ]
+        for path in source_paths:
+            if path.exists():
+                print(f"Debug: Found models via source tree fallback: {path}")
+                return path
+        
+        print("Debug: No models directory found in any location")
+        return None
+
     def _find_latest_model(self) -> Path | None:
         """Find the most recently trained YOLO model."""
-        # First check for models in the models directory (preferred)
-        models_dir = Path(__file__).parent / "models"
-        print(f"Debug: Checking models directory: {models_dir}")
+        models_dir = self._get_models_directory()
+        print(f"Debug: Models directory resolved to: {models_dir}")
+        
+        if not models_dir:
+            print("Debug: No models directory found")
+            return None
+        
         print(f"Debug: Models directory exists: {models_dir.exists()}")
         
         if models_dir.exists():
@@ -97,7 +180,7 @@ class YOLOSegmentation:
                 pass
         
         # Fall back to runs directory within the yolo module
-        runs_dir = Path(__file__).parent / "runs" / "segment"
+        runs_dir = models_dir.parent / "runs" / "segment" if models_dir else Path(__file__).parent / "runs" / "segment"
         print(f"Debug: Checking runs directory: {runs_dir}")
         print(f"Debug: Runs directory exists: {runs_dir.exists()}")
         
