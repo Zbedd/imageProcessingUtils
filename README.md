@@ -3,22 +3,25 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive Python package for advanced image processing, YOLO-based segmentation, and microscopy analysis.
+A Python package for advanced image processing, YOLO-based segmentation, and microscopy analysis. Consists of various tools I have found myself reusing across my projects.
 
 ## Features
 
 ### YOLO Segmentation
+
 - **Fine-tuned nuclei detection** - Pre-trained models optimized for microscopy images
 - **Automatic model discovery** - Works seamlessly across development and production environments
 - **Device flexibility** - Automatic CPU/GPU detection with fallback support
 - **High accuracy** - Specialized for biological image analysis
 
 ### Image Processing
+
 - **Microscopy-focused tools** - Preprocessing and enhancement for biological images
 - **Multi-format support** - Handle various image formats and bit depths
 - **Efficient processing** - Optimized algorithms for large image datasets
 
 ### File I/O
+
 - **ND2 file support** - Native reading of Nikon microscopy files
 - **Batch processing** - Handle multiple files and formats efficiently
 - **Metadata preservation** - Maintain important imaging parameters
