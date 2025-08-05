@@ -74,7 +74,7 @@ Issues = "https://github.com/Zbedd/imageProcessingUtils/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml", "*.yml", "*.json", "*.txt"]
+"*" = ["*.yaml", "*.yml", "*.json", "*.txt", "*.pt"]
 
 [tool.black]
 line-length = 88
