@@ -1,0 +1,24 @@
+# Core dependencies
+numpy>=1.21.0
+opencv-python>=4.5.0
+Pillow>=8.0.0
+matplotlib>=3.5.0
+scipy>=1.7.0
+
+# YOLO and ML dependencies
+torch>=1.9.0
+torchvision>=0.10.0
+ultralytics>=8.0.0
+
+# Data handling
+pandas>=1.3.0
+h5py>=3.1.0
+tqdm>=4.60.0
+
+# File format support
+nd2reader>=3.3.0
+imageio>=2.9.0
+
+# Configuration and utilities
+PyYAML>=5.4.0
+click>=8.0.0
