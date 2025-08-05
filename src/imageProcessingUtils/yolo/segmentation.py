@@ -32,7 +32,7 @@ class YOLOSegmentation:
         ...     print(f"Detected {labels.max()} nuclei")
     """
     
-    def __init__(self, model_path: Path | str | None = None):
+    def __init__(self, model_path: Path | str | None = None, verbose: bool = False):
         """Initialize YOLO segmentation with automatic or specified model discovery.
         
         Args:
@@ -41,11 +41,15 @@ class YOLOSegmentation:
                        - Prioritizes fine-tuned models (best_*.pt) in models/ directory
                        - Falls back to base models in models/ directory  
                        - Finally checks runs/segment/train*/weights/best.pt
+            verbose: Enable verbose debug output (default: False)
         """
-        print(f"Debug: YOLOSegmentation init called with model_path: {model_path}")
-        print(f"Debug: Current working directory: {Path.cwd()}")
-        print(f"Debug: Module file location: {Path(__file__)}")
-        print(f"Debug: Module parent directory: {Path(__file__).parent}")
+        self.verbose = verbose
+        
+        if self.verbose:
+            print(f"Debug: YOLOSegmentation init called with model_path: {model_path}")
+            print(f"Debug: Current working directory: {Path.cwd()}")
+            print(f"Debug: Module file location: {Path(__file__)}")
+            print(f"Debug: Module parent directory: {Path(__file__).parent}")
         
         self.model = None
         self.model_path = None
@@ -53,14 +57,18 @@ class YOLOSegmentation:
         if model_path is None:
             # Auto-discover the latest trained model
             self.model_path = self._find_latest_model()
-            print(f"Debug: Auto-discovered model_path: {self.model_path}")
+            if self.verbose:
+                print(f"Debug: Auto-discovered model_path: {self.model_path}")
         else:
             self.model_path = Path(model_path)
-            print(f"Debug: Using provided model_path: {self.model_path}")
+            if self.verbose:
+                print(f"Debug: Using provided model_path: {self.model_path}")
             
-        print(f"Debug: Final model_path before loading: {self.model_path}")
+        if self.verbose:
+            print(f"Debug: Final model_path before loading: {self.model_path}")
         if self.model_path and not self.model_path.exists():
-            print(f"Debug: Model file does not exist: {self.model_path}")
+            if self.verbose:
+                print(f"Debug: Model file does not exist: {self.model_path}")
             self.model_path = None
             
         self._load_model()
@@ -96,7 +104,8 @@ class YOLOSegmentation:
         # 1. Environment variable override
         env_path = os.environ.get('IMAGEPROCESSINGUTILS_MODEL_PATH')
         if env_path and Path(env_path).exists():
-            print(f"Debug: Using model path from environment: {env_path}")
+            if self.verbose:
+                print(f"Debug: Using model path from environment: {env_path}")
             return Path(env_path)
         
         # 2. Try installed package resources (modern approach)
@@ -104,10 +113,12 @@ class YOLOSegmentation:
             from importlib.resources import files
             models_dir = files('imageProcessingUtils.yolo') / 'models'
             if models_dir.is_dir():
-                print(f"Debug: Found models via importlib.resources: {models_dir}")
+                if self.verbose:
+                    print(f"Debug: Found models via importlib.resources: {models_dir}")
                 return Path(str(models_dir))
         except (ImportError, AttributeError, Exception) as e:
-            print(f"Debug: importlib.resources failed: {e}")
+            if self.verbose:
+                print(f"Debug: importlib.resources failed: {e}")
             pass
         
         # 3. Try pkg_resources (older approach)
@@ -117,17 +128,20 @@ class YOLOSegmentation:
                 'imageProcessingUtils.yolo', 'models'
             )
             if Path(models_dir).exists():
-                print(f"Debug: Found models via pkg_resources: {models_dir}")
+                if self.verbose:
+                    print(f"Debug: Found models via pkg_resources: {models_dir}")
                 return Path(models_dir)
         except Exception as e:
-            print(f"Debug: pkg_resources failed: {e}")
+            if self.verbose:
+                print(f"Debug: pkg_resources failed: {e}")
             pass
         
         # 4. Development installation fallback (current approach)
         module_dir = Path(__file__).parent
         dev_models_dir = module_dir / 'models'
         if dev_models_dir.exists():
-            print(f"Debug: Found models in development location: {dev_models_dir}")
+            if self.verbose:
+                print(f"Debug: Found models in development location: {dev_models_dir}")
             return dev_models_dir
         
         # 5. Source tree fallback paths
@@ -138,28 +152,34 @@ class YOLOSegmentation:
         ]
         for path in source_paths:
             if path.exists():
-                print(f"Debug: Found models via source tree fallback: {path}")
+                if self.verbose:
+                    print(f"Debug: Found models via source tree fallback: {path}")
                 return path
         
-        print("Debug: No models directory found in any location")
+        if self.verbose:
+            print("Debug: No models directory found in any location")
         return None
 
     def _find_latest_model(self) -> Path | None:
         """Find the most recently trained YOLO model."""
         models_dir = self._get_models_directory()
-        print(f"Debug: Models directory resolved to: {models_dir}")
+        if self.verbose:
+            print(f"Debug: Models directory resolved to: {models_dir}")
         
         if not models_dir:
-            print("Debug: No models directory found")
+            if self.verbose:
+                print("Debug: No models directory found")
             return None
         
-        print(f"Debug: Models directory exists: {models_dir.exists()}")
+        if self.verbose:
+            print(f"Debug: Models directory exists: {models_dir.exists()}")
         
         if models_dir.exists():
             try:
                 # Prioritize fine-tuned models (those starting with "best_")
                 fine_tuned_models = list(models_dir.glob("best_*.pt"))
-                print(f"Debug: Found {len(fine_tuned_models)} fine-tuned models")
+                if self.verbose:
+                    print(f"Debug: Found {len(fine_tuned_models)} fine-tuned models")
                 if fine_tuned_models:
                     model_path = max(fine_tuned_models, key=lambda p: p.stat().st_mtime)
                     print(f"Found fine-tuned model in models directory: {model_path}")
@@ -167,40 +187,48 @@ class YOLOSegmentation:
                 
                 # Fall back to any .pt model if no fine-tuned models
                 all_models = list(models_dir.glob("*.pt"))
-                print(f"Debug: Found {len(all_models)} total .pt models")
+                if self.verbose:
+                    print(f"Debug: Found {len(all_models)} total .pt models")
                 if all_models:
                     model_path = max(all_models, key=lambda p: p.stat().st_mtime)
                     print(f"Found model in models directory: {model_path}")
                     return model_path
             except ValueError as e:
-                print(f"Debug: ValueError in models directory search: {e}")
+                if self.verbose:
+                    print(f"Debug: ValueError in models directory search: {e}")
                 pass  # No models in models directory, continue to runs/
             except Exception as e:
-                print(f"Debug: Unexpected error in models directory search: {e}")
+                if self.verbose:
+                    print(f"Debug: Unexpected error in models directory search: {e}")
                 pass
         
         # Fall back to runs directory within the yolo module
         runs_dir = models_dir.parent / "runs" / "segment" if models_dir else Path(__file__).parent / "runs" / "segment"
-        print(f"Debug: Checking runs directory: {runs_dir}")
-        print(f"Debug: Runs directory exists: {runs_dir.exists()}")
+        if self.verbose:
+            print(f"Debug: Checking runs directory: {runs_dir}")
+            print(f"Debug: Runs directory exists: {runs_dir.exists()}")
         
         try:
             # Find the most recent best.pt model
             training_models = list(runs_dir.glob("train*/weights/best.pt"))
-            print(f"Debug: Found {len(training_models)} training models")
+            if self.verbose:
+                print(f"Debug: Found {len(training_models)} training models")
             if training_models:
                 model_path = max(training_models, key=lambda p: p.stat().st_mtime)
                 print(f"Found model in runs directory: {model_path}")
                 return model_path
         except ValueError as e:
-            print(f"Debug: ValueError in runs directory search: {e}")
+            if self.verbose:
+                print(f"Debug: ValueError in runs directory search: {e}")
             # No models found
             pass
         except Exception as e:
-            print(f"Debug: Unexpected error in runs directory search: {e}")
+            if self.verbose:
+                print(f"Debug: Unexpected error in runs directory search: {e}")
             pass
             
-        print("Debug: No models found in any location")
+        if self.verbose:
+            print("Debug: No models found in any location")
         return None
     
     def _load_model(self):
@@ -219,11 +247,13 @@ class YOLOSegmentation:
                 import torch
                 # Use CUDA if available, otherwise CPU
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                print(f"Debug: Using device: {device}")
+                if self.verbose:
+                    print(f"Debug: Using device: {device}")
             except ImportError:
                 # Fallback if torch not available
                 device = 'cpu'
-                print("Debug: PyTorch not available, defaulting to CPU")
+                if self.verbose:
+                    print("Debug: PyTorch not available, defaulting to CPU")
             
             # Load model with explicit device specification
             self.model = YOLO(self.model_path)
@@ -235,14 +265,15 @@ class YOLOSegmentation:
                 self.model.model.to(device)
                 
             self.model.fuse()
-            print(f"YOLO model loaded from '{self.model_path}' on device: {device}")
+            print(f"YOLO model loaded from '{self.model_path.name}' on device: {device}")
             
         except Exception as e:
-            print(f"Warning: could not load YOLO model at '{self.model_path}': {e}\n"
-                  f"         Device: {device if 'device' in locals() else 'unknown'}")
-            print(f"         Error type: {type(e).__name__}")
-            import traceback
-            traceback.print_exc()
+            print(f"Warning: could not load YOLO model at '{self.model_path}': {e}")
+            if self.verbose:
+                print(f"         Device: {device if 'device' in locals() else 'unknown'}")
+                print(f"         Error type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
             self.model = None  # Ensure model is None on failure
     
     def is_available(self) -> bool:
