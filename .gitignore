@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Claude - Agentic verification tests (not part of production codebase)
+claude/
+
+# VS Code settings (development environment specific)
+.vscode/
