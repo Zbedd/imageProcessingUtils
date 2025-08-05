@@ -99,17 +99,26 @@ class YOLOSegmentation:
             return
             
         try:
+            # Clear any existing model first to avoid state issues
+            self.model = None
+            
             self.model = YOLO(self.model_path)
             self.model.fuse()
             print(f"YOLO model loaded from '{self.model_path}'")
         except Exception as e:
             print(f"Warning: could not load YOLO model at '{self.model_path}': {e}\n"
                   "         YOLO-based segmentation will be unavailable.")
+            self.model = None  # Ensure model is None on failure
     
     def is_available(self) -> bool:
         """Check if YOLO model is available for inference."""
         return self.model is not None
     
+    def reload_model(self):
+        """Reload the YOLO model. Useful if model becomes corrupted or unavailable."""
+        print("Reloading YOLO model...")
+        self._load_model()
+        
     def segment(self, input_image: np.ndarray, *, conf_thres: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
         """Perform YOLO-based segmentation on nuclei/cellular structures.
         
@@ -142,20 +151,44 @@ class YOLOSegmentation:
         if not self.is_available():
             raise RuntimeError("YOLO model not loaded; cannot run YOLO segmentation.")
         
-        # Prepare 3-channel uint8 input
-        img8 = np.clip(input_image, 0, 255).astype(np.uint8)
-        if img8.ndim == 2:
-            img8 = np.stack([img8] * 3, axis=-1)
-        
-        # Run inference
-        results = self.model(
-            img8, 
-            imgsz=768, 
-            mask_ratio=1, 
-            conf=conf_thres, 
-            retina_masks=True, 
-            verbose=False
-        )[0]
+        try:
+            # Prepare 3-channel uint8 input
+            img8 = np.clip(input_image, 0, 255).astype(np.uint8)
+            if img8.ndim == 2:
+                img8 = np.stack([img8] * 3, axis=-1)
+            
+            # Run inference
+            results = self.model(
+                img8, 
+                imgsz=768, 
+                mask_ratio=1, 
+                conf=conf_thres, 
+                retina_masks=True, 
+                verbose=False
+            )[0]
+            
+        except Exception as e:
+            print(f"Warning: YOLO inference failed: {e}")
+            print("Attempting to reload model and retry...")
+            
+            # Try to reload the model once
+            self.reload_model()
+            
+            if not self.is_available():
+                raise RuntimeError(f"YOLO model failed and could not be reloaded: {e}")
+            
+            # Retry inference once
+            try:
+                results = self.model(
+                    img8, 
+                    imgsz=768, 
+                    mask_ratio=1, 
+                    conf=conf_thres, 
+                    retina_masks=True, 
+                    verbose=False
+                )[0]
+            except Exception as e2:
+                raise RuntimeError(f"YOLO inference failed even after model reload: {e2}")
         
         # Check if any masks were detected
         if results.masks is None:
