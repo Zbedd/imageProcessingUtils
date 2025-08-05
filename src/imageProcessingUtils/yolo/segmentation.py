@@ -10,10 +10,38 @@ from .model_training import DEFAULTS
 
 
 class YOLOSegmentation:
-    """YOLO-based nuclei segmentation handler."""
+    """YOLO-based nuclei segmentation handler for microscopy images.
+    
+    This class provides an interface to YOLO (You Only Look Once) segmentation models
+    specifically fine-tuned for nuclei detection in microscopy images. It handles
+    model loading, input preprocessing, and output post-processing.
+    
+    The class automatically discovers and loads the best available model:
+    1. Fine-tuned models in models/ directory (prefix: best_*)
+    2. Base models in models/ directory  
+    3. Training outputs in runs/segment/ directory
+    
+    Attributes:
+        model: Loaded YOLO model instance (None if unavailable)
+        model_path: Path to the loaded model file
+        
+    Example:
+        >>> segmenter = YOLOSegmentation()
+        >>> if segmenter.is_available():
+        ...     labels, mask = segmenter.segment(microscopy_image, conf_thres=0.05)
+        ...     print(f"Detected {labels.max()} nuclei")
+    """
     
     def __init__(self, model_path: Path | str | None = None):
-        """Initialize YOLO segmentation with model path."""
+        """Initialize YOLO segmentation with automatic or specified model discovery.
+        
+        Args:
+            model_path: Optional path to specific YOLO model file (.pt)
+                       If None, automatically discovers the best available model:
+                       - Prioritizes fine-tuned models (best_*.pt) in models/ directory
+                       - Falls back to base models in models/ directory  
+                       - Finally checks runs/segment/train*/weights/best.pt
+        """
         self.model = None
         self.model_path = None
         
@@ -31,6 +59,14 @@ class YOLOSegmentation:
         models_dir = Path(__file__).parent / "models"
         if models_dir.exists():
             try:
+                # Prioritize fine-tuned models (those starting with "best_")
+                fine_tuned_models = list(models_dir.glob("best_*.pt"))
+                if fine_tuned_models:
+                    model_path = max(fine_tuned_models, key=lambda p: p.stat().st_mtime)
+                    print(f"Found fine-tuned model in models directory: {model_path}")
+                    return model_path
+                
+                # Fall back to any .pt model if no fine-tuned models
                 model_path = max(
                     models_dir.glob("*.pt"),
                     key=lambda p: p.stat().st_mtime,
@@ -40,8 +76,8 @@ class YOLOSegmentation:
             except ValueError:
                 pass  # No models in models directory, continue to runs/
         
-        # Fall back to runs directory for auto-discovered training outputs
-        runs_dir = Path(DEFAULTS.get("yolo_runs_dir", "runs/segment")).expanduser()
+        # Fall back to runs directory within the yolo module
+        runs_dir = Path(__file__).parent / "runs" / "segment"
         
         try:
             # Find the most recent best.pt model
@@ -58,16 +94,16 @@ class YOLOSegmentation:
     def _load_model(self):
         """Load the YOLO model."""
         if self.model_path is None or not self.model_path.exists():
-            print(f"⚠️  Warning: YOLO model not found at '{self.model_path}'. "
+            print(f"Warning: YOLO model not found at '{self.model_path}'. "
                   "YOLO-based segmentation will be unavailable.")
             return
             
         try:
             self.model = YOLO(self.model_path)
             self.model.fuse()
-            print(f"✅ YOLO model loaded from '{self.model_path}'")
+            print(f"YOLO model loaded from '{self.model_path}'")
         except Exception as e:
-            print(f"⚠️  Warning: could not load YOLO model at '{self.model_path}': {e}\n"
+            print(f"Warning: could not load YOLO model at '{self.model_path}': {e}\n"
                   "         YOLO-based segmentation will be unavailable.")
     
     def is_available(self) -> bool:
@@ -75,14 +111,33 @@ class YOLOSegmentation:
         return self.model is not None
     
     def segment(self, input_image: np.ndarray, *, conf_thres: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
-        """Perform YOLO-based segmentation.
+        """Perform YOLO-based segmentation on nuclei/cellular structures.
+        
+        This method processes grayscale microscopy images for nuclei detection using a 
+        fine-tuned YOLO segmentation model. The input image is automatically converted 
+        to the required 3-channel RGB format that YOLO expects.
         
         Args:
-            input_image: Input image array
-            conf_thres: Confidence threshold for detection
+            input_image: 2D grayscale numpy array (uint8 or float, any intensity range)
+                        Expected formats:
+                        - Microscopy images: nuclei appear as bright regions on dark background
+                        - Any bit depth: will be normalized to uint8 [0-255] range
+                        - Single channel: automatically converted to 3-channel RGB for YOLO
+            conf_thres: Confidence threshold for object detection (0.0-1.0)
+                       Lower values detect more objects but may include false positives
+                       Typical range: 0.01-0.5 for nuclei detection
             
         Returns:
-            Tuple of (instance_labels, binary_mask)
+            Tuple of (instance_labels, binary_mask):
+            - instance_labels: 2D uint16 array where each detected nucleus has unique ID (1, 2, 3...)
+            - binary_mask: 2D boolean array indicating all detected regions (True = nucleus)
+            
+        Raises:
+            RuntimeError: If YOLO model is not loaded or available
+            
+        Note:
+            The YOLO model expects 3-channel input at 768x768 resolution internally.
+            Input images are automatically resized and converted during inference.
         """
         if not self.is_available():
             raise RuntimeError("YOLO model not loaded; cannot run YOLO segmentation.")
@@ -101,6 +156,12 @@ class YOLOSegmentation:
             retina_masks=True, 
             verbose=False
         )[0]
+        
+        # Check if any masks were detected
+        if results.masks is None:
+            # No objects detected, return empty masks
+            h, w = input_image.shape
+            return np.zeros((h, w), dtype=np.uint16), np.zeros((h, w), dtype=bool)
         
         masks = results.masks.data  # Tensor (N, H, W)
         h, w = input_image.shape
@@ -135,14 +196,44 @@ def get_yolo_segmentation() -> YOLOSegmentation:
 
 
 def segmentation_pipeline_yolo(input_image: np.ndarray, *, conf_thres: float = 0.01) -> tuple[np.ndarray, np.ndarray]:
-    """YOLO-v8 retina_masks segmentation → union mask + instance labels.
+    """YOLO-v8 nuclei segmentation pipeline with retina masks.
+    
+    High-level interface for YOLO-based nuclei segmentation. This function provides
+    a simple way to segment nuclei in microscopy images using a fine-tuned YOLO model.
     
     Args:
-        input_image: Input image array
-        conf_thres: Confidence threshold for detection
+        input_image: 2D grayscale microscopy image as numpy array
+                    - Supported formats: uint8, uint16, float32, float64
+                    - Expected content: nuclei as bright regions on darker background
+                    - Any resolution: automatically processed by YOLO at optimal size
+        conf_thres: Detection confidence threshold (default: 0.01)
+                   - Range: 0.0 to 1.0
+                   - Lower values: more detections, possible false positives
+                   - Higher values: fewer detections, missed small nuclei
+                   - Recommended: 0.01-0.1 for nuclei, 0.1-0.3 for larger objects
         
     Returns:
-        Tuple of (instance_labels, binary_mask)
+        Tuple of (instance_labels, binary_mask):
+        - instance_labels: 2D uint16 array with unique IDs for each nucleus (0=background)
+        - binary_mask: 2D boolean array marking all detected nuclear regions
+        
+    Example:
+        >>> import numpy as np
+        >>> from imageProcessingUtils.yolo.segmentation import segmentation_pipeline_yolo
+        >>> 
+        >>> # Load your microscopy image (2D grayscale)
+        >>> image = np.load('microscopy_image.npy')  # or cv2.imread(), etc.
+        >>> 
+        >>> # Segment nuclei
+        >>> labels, mask = segmentation_pipeline_yolo(image, conf_thres=0.05)
+        >>> 
+        >>> # Results
+        >>> num_nuclei = labels.max()  # Number of detected nuclei
+        >>> coverage = mask.sum() / mask.size  # Fraction of image covered by nuclei
+        
+    Note:
+        Uses a globally cached YOLO model instance for efficiency. The model is
+        automatically loaded on first use and searches for fine-tuned models first.
     """
     yolo_seg = get_yolo_segmentation()
     return yolo_seg.segment(input_image, conf_thres=conf_thres)
