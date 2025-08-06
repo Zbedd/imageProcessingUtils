@@ -111,7 +111,7 @@ def test_synthetic_image():
 
 def test_sample_images():
     """Test segmentation on sample uint8 images."""
-    sample_dir = Path(__file__).parent.parent / "sample_uint8_images"
+    sample_dir = Path(__file__).parent.parent.parent / "sample_data" / "sample_uint8_images"
     
     if not sample_dir.exists():
         print(f"Sample directory not found: {sample_dir}")
