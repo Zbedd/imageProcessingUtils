@@ -13,18 +13,28 @@ A Python package for advanced image processing, YOLO-based segmentation, and mic
 - **Automatic model discovery** - Works seamlessly across development and production environments
 - **Device flexibility** - Automatic CPU/GPU detection with fallback support
 - **High accuracy** - Specialized for biological image analysis
+- **Model training utilities** - Build datasets and train custom YOLO models
 
 ### Image Processing
 
-- **Microscopy-focused tools** - Preprocessing and enhancement for biological images
-- **Multi-format support** - Handle various image formats and bit depths
-- **Efficient processing** - Optimized algorithms for large image datasets
+- **Basic preprocessing** - DAPI image preprocessing and enhancement
+- **Gaussian filtering** - Noise reduction and image smoothing
+- **Median filtering** - Salt-and-pepper noise removal
+- **Multi-format support** - Handle various image formats and bit depths (planned)
+- **Advanced filtering suite** - Edge detection, morphological operations (planned)
 
 ### File I/O
 
-- **ND2 file support** - Native reading of Nikon microscopy files
-- **Batch processing** - Handle multiple files and formats efficiently
-- **Metadata preservation** - Maintain important imaging parameters
+- **ND2 file support** - Native reading and characterization of Nikon microscopy files
+- **Metadata preservation** - Extract and maintain important imaging parameters
+- **Batch processing** - Handle multiple files and formats efficiently (planned)
+- **Additional format support** - TIFF, CZI, and other microscopy formats (planned)
+
+### Visualization (planned)
+
+- **Static plotting** - Display images and segmentation results (planned)
+- **Interactive tools** - Data exploration and analysis interfaces (planned)
+- **Batch visualization** - Generate reports for multiple images (planned)
 
 ## Quick Start
 
@@ -81,10 +91,15 @@ imageProcessingUtils/
 ├── src/imageProcessingUtils/     # Main package
 │   ├── yolo/                     # YOLO segmentation tools
 │   │   ├── segmentation.py       # Main segmentation interface
-│   │   ├── model_training.py     # Training utilities
+│   │   ├── model_training.py     # Training utilities  
 │   │   └── models/               # Pre-trained model files
 │   ├── image_processing/         # Image processing utilities
-│   └── file_io/                  # File I/O operations
+│   │   ├── preprocessing.py      # DAPI preprocessing functions
+│   │   └── filters.py           # Gaussian and median filters
+│   ├── file_io/                  # File I/O operations
+│   │   ├── nd2_reader.py        # ND2 file reading and characterization
+│   │   └── data_loaders.py      # General data loading (basic)
+│   └── visualization/            # Visualization tools (planned)
 ├── docs/                         # Documentation
 ├── examples/                     # Usage examples
 └── tests/                        # Test suite

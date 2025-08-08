@@ -245,6 +245,22 @@ class YOLOSegmentation:
             # Import torch to check device availability
             try:
                 import torch
+                
+                # Detailed device diagnostics
+                if self.verbose:
+                    print(f"Debug: PyTorch version: {torch.__version__}")
+                    print(f"Debug: CUDA available: {torch.cuda.is_available()}")
+                    if torch.cuda.is_available():
+                        print(f"Debug: CUDA device count: {torch.cuda.device_count()}")
+                        print(f"Debug: Current CUDA device: {torch.cuda.current_device()}")
+                        print(f"Debug: CUDA device name: {torch.cuda.get_device_name()}")
+                        print(f"Debug: CUDA capability: {torch.cuda.get_device_capability()}")
+                    else:
+                        print("Debug: CUDA not available - possible reasons:")
+                        print("  - PyTorch CPU-only installation")
+                        print("  - CUDA drivers not installed")
+                        print("  - CUDA version mismatch")
+                
                 # Use CUDA if available, otherwise CPU
                 device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 if self.verbose:
@@ -279,6 +295,45 @@ class YOLOSegmentation:
     def is_available(self) -> bool:
         """Check if YOLO model is available for inference."""
         return self.model is not None
+    
+    def get_device_info(self) -> dict:
+        """Get detailed device and CUDA information for debugging."""
+        info = {
+            'model_loaded': self.is_available(),
+            'pytorch_available': False,
+            'cuda_available': False,
+            'current_device': 'unknown'
+        }
+        
+        try:
+            import torch
+            info['pytorch_available'] = True
+            info['pytorch_version'] = torch.__version__
+            info['cuda_available'] = torch.cuda.is_available()
+            
+            if torch.cuda.is_available():
+                info['cuda_device_count'] = torch.cuda.device_count()
+                info['current_device'] = f"cuda:{torch.cuda.current_device()}"
+                info['device_name'] = torch.cuda.get_device_name()
+                info['cuda_version'] = torch.version.cuda
+                info['cudnn_version'] = torch.backends.cudnn.version()
+            else:
+                info['current_device'] = 'cpu'
+                
+        except ImportError:
+            info['error'] = 'PyTorch not available'
+        except Exception as e:
+            info['error'] = str(e)
+            
+        # Check CuPy for comparison
+        try:
+            import cupy
+            info['cupy_available'] = True
+            info['cupy_version'] = cupy.__version__
+        except ImportError:
+            info['cupy_available'] = False
+            
+        return info
     
     def reload_model(self):
         """Reload the YOLO model. Useful if model becomes corrupted or unavailable."""
