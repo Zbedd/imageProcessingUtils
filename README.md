@@ -30,6 +30,14 @@ A Python package for advanced image processing, YOLO-based segmentation, and mic
 - **Batch processing** - Handle multiple files and formats efficiently (planned)
 - **Additional format support** - TIFF, CZI, and other microscopy formats (planned)
 
+### Sample Data
+
+- **BBBC022 dataset integration** - Automated download and processing of benchmark microscopy data
+- **Flexible filtering** - Filter by treatment, focal plane, wells, and imaging channels
+- **Seeded sampling** - Reproducible random sampling for consistent testing
+- **YOLO-ready output** - Direct compatibility with segmentation pipeline
+- **Metadata tracking** - Complete provenance and processing information
+
 ### Visualization (planned)
 
 - **Static plotting** - Display images and segmentation results (planned)
@@ -77,6 +85,26 @@ from imageProcessingUtils.yolo.segmentation import segmentation_pipeline_yolo
 labels, mask = segmentation_pipeline_yolo(image, conf_thres=0.05)
 ```
 
+### Working with Sample Data
+
+```python
+# Get sample images from BBBC022 dataset
+from imageProcessingUtils.sample_data import fetch_bbbc022_samples
+
+# Fetch sample images (downloads automatically)
+images, metadata = fetch_bbbc022_samples(
+    count=5,
+    focal_planes=[0],           # In-focus images
+    treatments=['DMSO'],        # Control condition
+    seed=42                     # Reproducible sampling
+)
+
+# Process with YOLO
+for img in images:
+    labels, mask = segmentation_pipeline_yolo(img)
+    print(f"Detected {labels.max()} nuclei")
+```
+
 ## Documentation
 
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running in minutes
@@ -99,7 +127,12 @@ imageProcessingUtils/
 │   ├── file_io/                  # File I/O operations
 │   │   ├── nd2_reader.py        # ND2 file reading and characterization
 │   │   └── data_loaders.py      # General data loading (basic)
+│   ├── sample_data/              # Sample dataset acquisition
+│   │   ├── bbbc022.py           # BBBC022 dataset fetcher
+│   │   ├── cli.py               # Command-line interface
+│   │   └── README.md            # Sample data documentation
 │   └── visualization/            # Visualization tools (planned)
+├── sample_data/                  # Legacy sample data tools (deprecated)
 ├── docs/                         # Documentation
 ├── examples/                     # Usage examples
 └── tests/                        # Test suite

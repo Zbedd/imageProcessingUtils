@@ -11,9 +11,11 @@ __author__ = "Zbedd"
 from . import yolo
 from . import image_processing
 from . import file_io
+from . import sample_data
 
 __all__ = [
     "yolo",
     "image_processing", 
-    "file_io"
+    "file_io",
+    "sample_data"
 ]
