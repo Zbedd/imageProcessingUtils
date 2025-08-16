@@ -387,13 +387,11 @@ class BBBC022Fetcher:
         
         # Ensure uint8 format
         if img_array.dtype != np.uint8:
-            # Normalize to 0-255 range
+            # Normalize to 0-255 range using float arithmetic
             img_min, img_max = img_array.min(), img_array.max()
             if img_max > img_min:
-                img_normalized = (img_array - img_min) / (img_max - img_min) * 255
-            else:
-                img_normalized = img_array
-            img_array = img_normalized.astype(np.uint8)
+                img_array = ((img_array.astype(np.float32) - img_min) / (img_max - img_min) * 255)
+            img_array = img_array.astype(np.uint8)
             
         return img_array
     
