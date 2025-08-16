@@ -175,8 +175,6 @@ class BBBC022Fetcher:
                 print(f"Warning: Could not parse filename {filename}: {e}")
                 continue
                     
-        print(f"Selected {len(selected_urls)} zip files to download (plates: {len(plates_seen)}, channels: {channels})")
-        
         # If no URLs were selected but we have channels, take first few that match
         if not selected_urls and channels:
             print("Fallback: Taking first few URLs that match requested channels...")
@@ -194,10 +192,11 @@ class BBBC022Fetcher:
                 if len(selected_urls) >= max_plates * len(channels):
                     break
         
-        print(f"Selected {len(selected_urls)} zip files to download (plates: {len(plates_seen)}, channels: {channels})")
+        print(f"Selected {len(selected_urls)} zip files to download or pull from cache (plates: {len(plates_seen)}, channels: {channels})")
         
         # Download and extract selected files
         extract_path.mkdir(exist_ok=True)
+        download_occurred = False
         
         for i, url in enumerate(selected_urls):
             filename = url.split('/')[-1]
@@ -205,6 +204,7 @@ class BBBC022Fetcher:
             
             # Download if needed
             if not zip_path.exists() or force_redownload:
+                download_occurred = True
                 print(f"Downloading {i+1}/{len(selected_urls)}: {filename}")
                 try:
                     urllib.request.urlretrieve(url, zip_path)
@@ -220,8 +220,11 @@ class BBBC022Fetcher:
             except Exception as e:
                 print(f"Error extracting {filename}: {e}")
                 continue
-                
-        print(f"Download and extraction complete. Images available in: {extract_path}")
+        
+        if download_occurred:
+            print(f"Download and extraction complete. Images available in: {extract_path}")
+        else:
+            print(f"Retrieval from cache and extraction complete. Images available in: {extract_path}")
         return extract_path
     
     def parse_filename(self, filename: str) -> dict:
@@ -378,11 +381,9 @@ class BBBC022Fetcher:
         # Load image
         img = Image.open(image_path)
         
-        # Convert to grayscale if needed
-        if img.mode != 'L':
-            img = img.convert('L')
-            
-        # Convert to numpy array
+        # Convert to numpy array directly to preserve the original bit depth.
+        # The previous call to `img.convert('L')` was causing a lossy conversion
+        # of 16-bit images to 8-bit, which resulted in an incorrect data range.
         img_array = np.array(img)
         
         # Ensure uint8 format
